@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnóstico Aéreo de Cultivos - Mandarina, Caña y Zarzamora</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Chart.js for Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <header class="app-header">
+        <div class="logo-container">
+            <span class="icon">🛸</span>
+            <div>
+                <h1>AgroScan AI - Diagnóstico Multiespectral Aéreo</h1>
+                <p>Plataforma para Mandarina, Caña de Azúcar y Zarzamora</p>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button id="btn-sample-data" class="btn btn-secondary">⚡ Cargar Muestra Demostrativa</button>
+        </div>
+    </header>
+
+    <main class="main-container">
+        <!-- Sidebar Controls -->
+        <aside class="sidebar">
+            <div class="panel">
+                <h2>1. Selección de Cultivo</h2>
+                <div class="form-group">
+                    <label for="crop-select">Tipo de Cultivo:</label>
+                    <select id="crop-select" class="form-control">
+                        <option value="mandarina">🍊 Mandarina (Cítrico)</option>
+                        <option value="cana">🌾 Caña de Azúcar</option>
+                        <option value="zarzamora">🫐 Zarzamora (Berries)</option>
+                    </select>
+                </div>
+                <div id="crop-info" class="crop-info-box">
+                    <!-- Crop specific thresholds info populated by JS -->
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>2. Carga de Datos de Dron</h2>
+                <p class="help-text">Puedes subir una imagen GeoTIFF/Multiespectral o un set multisensorial para análisis preciso.</p>
+                
+                <div class="form-group">
+                    <label for="upload-mode">Modo de Entrada:</label>
+                    <select id="upload-mode" class="form-control">
+                        <option value="composite">Imagen Compuesta Multisensorial (TIFF/PNG)</option>
+                        <option value="individual">Subida por Bandas Separadas</option>
+                    </select>
+                </div>
+
+                <div id="single-upload-box" class="file-upload-box">
+                    <input type="file" id="main-image-input" accept="image/*,.tif,.tiff" class="file-input">
+                    <div class="upload-area">
+                        <span class="upload-icon">📁</span>
+                        <p>Arrastra o selecciona la ortofoto del dron</p>
+                        <small>Soporta TIFF, PNG, JPG</small>
+                    </div>
+                </div>
+
+                <div id="bands-upload-box" class="file-upload-box hidden">
+                    <div class="band-input"><label>Rojo (R):</label><input type="file" id="band-r" accept="image/*"></div>
+                    <div class="band-input"><label>Verde (G):</label><input type="file" id="band-g" accept="image/*"></div>
+                    <div class="band-input"><label>Azul (B):</label><input type="file" id="band-b" accept="image/*"></div>
+                    <div class="band-input"><label>Red Edge (RE):</label><input type="file" id="band-re" accept="image/*"></div>
+                    <div class="band-input"><label>Infrarrojo (NIR):</label><input type="file" id="band-nir" accept="image/*"></div>
+                </div>
+
+                <button id="btn-process" class="btn btn-primary btn-block" disabled>🚀 Ejecutar Diagnóstico</button>
+            </div>
+
+            <div class="panel">
+                <h2>3. Ajuste de Paleta de Color</h2>
+                <div class="form-group">
+                    <label for="palette-select">Estilo de Rampa:</label>
+                    <select id="palette-select" class="form-control">
+                        <option value="agri">Agrícola Estándar (Rojo - Amarillo - Verde)</option>
+                        <option value="viridis">Viridis (Púrpura - Verde - Amarillo)</option>
+                        <option value="ndre_special">Estrés de Clorofila (Rojo a Azul Esmeralda)</option>
+                    </select>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <section class="content-area">
+            <!-- Image Canvas Grid -->
+            <div class="grid-images">
+                <div class="card-canvas">
+                    <div class="card-header">
+                        <h3>RGB / Referencia Visual</h3>
+                        <span class="badge">Vista Original</span>
+                    </div>
+                    <div class="canvas-wrapper">
+                        <canvas id="canvas-rgb"></canvas>
+                    </div>
+                    <p class="card-desc">Imagen base del cultivo capturada por el dron.</p>
+                </div>
+
+                <div class="card-canvas">
+                    <div class="card-header">
+                        <h3>NDVI (Índice de Vegetación)</h3>
+                        <span class="badge badge-ndvi">NIR - RED</span>
+                    </div>
+                    <div class="canvas-wrapper">
+                        <canvas id="canvas-ndvi"></canvas>
+                    </div>
+                    <p class="card-desc">Fórmula: (NIR - Red) / (NIR + Red). Evalúa el vigor vegetativo y biomasa.</p>
+                </div>
+
+                <div class="card-canvas">
+                    <div class="card-header">
+                        <h3>NDRE (Banda Red Edge)</h3>
+                        <span class="badge badge-ndre">NIR - RedEdge</span>
+                    </div>
+                    <div class="canvas-wrapper">
+                        <canvas id="canvas-ndre"></canvas>
+                    </div>
+                    <p class="card-desc">Fórmula: (NIR - RE) / (NIR + RE). Detecta estrés nitrógenico y clorofila temprana.</p>
+                </div>
+
+                <div class="card-canvas">
+                    <div class="card-header">
+                        <h3>VARI (Índice Atmosférico Visible)</h3>
+                        <span class="badge badge-vari">RGB Visible</span>
+                    </div>
+                    <div class="canvas-wrapper">
+                        <canvas id="canvas-vari"></canvas>
+                    </div>
+                    <p class="card-desc">Fórmula: (Green - Red) / (Green + Red - Blue). Análisis de cobertura foliar visible.</p>
+                </div>
+            </div>
+
+            <!-- Diagnostics Dashboard -->
+            <div class="dashboard-panel">
+                <h2>📊 Reporte Agronómico y Métricas de Diagnóstico</h2>
+                <div class="metrics-cards">
+                    <div class="metric-card">
+                        <h4>Salud Promedio NDVI</h4>
+                        <div id="val-ndvi" class="metric-value">--</div>
+                        <span id="status-ndvi" class="status-tag">Sin datos</span>
+                    </div>
+                    <div class="metric-card">
+                        <h4>Clorofila / Nitrógeno NDRE</h4>
+                        <div id="val-ndre" class="metric-value">--</div>
+                        <span id="status-ndre" class="status-tag">Sin datos</span>
+                    </div>
+                    <div class="metric-card">
+                        <h4>Cobertura Foliar VARI</h4>
+                        <div id="val-vari" class="metric-value">--</div>
+                        <span id="status-vari" class="status-tag">Sin datos</span>
+                    </div>
+                    <div class="metric-card">
+                        <h4>Área con Estrés Severo</h4>
+                        <div id="val-stress" class="metric-value">--</div>
+                        <span class="status-tag danger">Atención Requerida</span>
+                    </div>
+                </div>
+
+                <div class="charts-section">
+                    <div class="chart-container">
+                        <h3>Distribución de Vigor Vegetativo (Histrograma NDVI)</h3>
+                        <canvas id="chart-ndvi"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Diagnóstico Recomendado por Cultivo</h3>
+                        <div id="recommendations-box" class="recommendations-container">
+                            <p>Cargue o simule una imagen para generar la recomendación de fertirriego y manejo fitosanitario.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="app-footer">
+        <p>AgroScan AI © 2026 - Listo para desplegar en <strong>GitHub Pages</strong></p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
